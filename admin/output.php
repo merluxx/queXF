@@ -72,7 +72,7 @@ if (isset($_GET['pspp']))
 
 xhtml_head(T_("Output data"),true,array("../css/table.css"));
 
-$sql = "SELECT description,
+$sql = "SELECT description, qid,
 		CONCAT('<a href=\"?data=', qid, '\">" . T_("Data") . "</a>') as data,
 		CONCAT('<a href=\"?ddi=', qid, '\">" . T_("DDI") . "</a>') as ddi,
 		CONCAT('<a href=\"?csv=', qid, '\">" . T_("CSV") . "</a>') as csv,
@@ -86,7 +86,102 @@ $sql = "SELECT description,
 
 $qs = $db->GetAll($sql);
 
-xhtml_table($qs, array('description','data','ddi','csv','csvmerged','csvlabel','pspp','banding'),array(T_("Questionnaire"),T_("Data"),T_("DDI"),T_("CSV"),T_("CSV Merged"),T_("CSV Labelled"), T_("PSPP (SPSS)"), T_("Banding XML")));
+foreach ($qs as &$row) {
+    $row['filledpdfzip'] = '<button class="download-filled-pdf-zip" data-qid="' . htmlspecialchars($row['qid']) . '">' . T_("ZIP of filled PDFs") . '</button>';
+}
+
+xhtml_table($qs, array('description','data','ddi','csv','csvmerged','csvlabel','pspp','banding','filledpdfzip'),array(T_("Questionnaire"),T_("Data"),T_("DDI"),T_("CSV"),T_("CSV Merged"),T_("CSV Labelled"), T_("PSPP (SPSS)"), T_("Banding XML"), T_("ZIP of filled PDFs")));
+
+?>
+<style>
+#zip-progress-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+	display: none;
+	align-items: center;
+	justify-content: center;
+	z-index: 9999;
+}
+
+#zip-progress-box {
+	background: #fff;
+	padding: 24px 32px;
+	border-radius: 8px;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+	text-align: center;
+	font-family: Arial, sans-serif;
+	max-width: 420px;
+}
+
+#zip-progress-spinner {
+	width: 38px;
+	height: 38px;
+	border: 4px solid #ddd;
+	border-top-color: #2b6cb0;
+	border-radius: 50%;
+	animation: zip-spin 1s linear infinite;
+	margin: 0 auto 16px auto;
+}
+
+@keyframes zip-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+</style>
+
+<div id="zip-progress-overlay">
+	<div id="zip-progress-box">
+		<div id="zip-progress-spinner"></div>
+		<strong>ZIP file generation in progress…</strong>
+		<p>Please wait while the completed PDFs are being generated.</p>
+	</div>
+</div>
+
+<script src="../js/prototype-1.6.0.2.js"></script> <!-- Ensure Prototype is included -->
+<script type="text/javascript">
+document.addEventListener("DOMContentLoaded", function () {
+	var links = document.querySelectorAll(".download-filled-pdf-zip");
+	links.forEach(function (link) {
+		link.addEventListener("click", function (event) {
+			event.preventDefault(); // Prevent the default link behavior
+			var qid = this.getAttribute('data-qid');
+			generateAndDownloadZip(qid);
+		});
+	});
+
+	function generateAndDownloadZip(qid) {
+		var overlay = document.getElementById("zip-progress-overlay");
+		if (overlay) {
+			overlay.style.display = "flex";
+		}
+
+		new Ajax.Request('generate_zip.php', {
+			method: 'post',
+			parameters: { qid: qid },
+			onSuccess: function(response) {
+				var jsonResponse = response.responseJSON;
+				if (jsonResponse.success && jsonResponse.downloadUrl) {
+					window.location.href = jsonResponse.downloadUrl; // Redirect to download
+				} else {
+					alert('Error generating the ZIP file:' + jsonResponse.message);
+				}
+				if (overlay) {
+					overlay.style.display = "none";
+				}
+			},
+			onFailure: function() {
+				alert('An error has occurred. Please try again later.');
+				if (overlay) {
+					overlay.style.display = "none";
+				}
+			}
+		});
+	}
+});
+</script>
+<?php
 
 xhtml_foot();
 

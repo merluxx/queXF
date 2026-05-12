@@ -84,7 +84,7 @@ define('SINGLE_CHOICE_MAX_FILLED','0.6');
 define('HTPASSWD_PATH','/opt/quexf/password');
 define('HTGROUP_PATH','/opt/quexf/group');
 
-
+define('PYVENV','/var/www/quexf/py/.venv');
 
 //Do not remove the following line:
 include(dirname(__FILE__) . '/config.default.php');

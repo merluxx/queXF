@@ -1,0 +1,3 @@
+pymysql
+pypdf
+reportlab

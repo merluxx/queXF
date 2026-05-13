@@ -35,10 +35,10 @@ if (isset($_FILES['form']))
 {
 	$a = true;
 	$filename = $_FILES['form']['tmp_name'];
-  $desc = $_POST['desc'];
-  $double_entry = 0;
-  if (isset($_POST['double_entry']))
-    $double_entry = 1;
+	$desc = $_POST['desc'];
+	$double_entry = 0;
+	if (isset($_POST['double_entry']))
+		$double_entry = 1;
 	$desc = $_POST['desc'];
 
 	$r = newquestionnaire($filename,$desc,"pnggray",$double_entry);
@@ -46,7 +46,18 @@ if (isset($_FILES['form']))
 	if (!is_array($r) && isset($_FILES['bandingxml']) && !empty($_FILES['bandingxml']['tmp_name']))
 	{
 		$xmlname = $_FILES['bandingxml']['tmp_name'];
-		$r2 =  import_bandingxml(file_get_contents($xmlname),$r);
+		$xml_data = file_get_contents($xmlname);
+		$r2 =  import_bandingxml($xml_data,$r);
+		
+		// Save xml_banding in Db
+		$db->StartTrans();
+		$sql = "
+			UPDATE questionnaires
+			SET quexf_banding = ?
+			WHERE qid = ?
+		";
+		$db->Execute($sql, array($xml_data, (int)$r));
+		$db->CompleteTrans();
 	}
 }
 

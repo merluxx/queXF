@@ -154,18 +154,24 @@ function newquestionnaire($filename,$desc = "",$type="pnggray",$double_entry=0){
 	
 	//print "Creating PNG files<br/>";
 
+	// Read PDF file
+	$pdf_data = file_get_contents($filename);
+	if ($pdf_data === false) {
+		die("Unable to read PDF file");
+	}
+
+
 	//add to questionnaire table
 	//
 	//create form entry in DB
 	//
 
 	$db->StartTrans();
-
-	$sql = "INSERT INTO questionnaires (qid,description,sheets,double_entry)
-		VALUES (NULL,'$desc',0,$double_entry)";
-
-	$db->Execute($sql);
-
+	$sql = "
+		INSERT INTO questionnaires (qid,description,sheets,double_entry,quexf_pdf)
+		VALUES (NULL,?,0,?,?)
+	";
+	$db->Execute($sql, array($desc, $double_entry, $pdf_data));
 	$qid = $db->Insert_Id();
 
 	//Number of imported pages
@@ -179,8 +185,8 @@ function newquestionnaire($filename,$desc = "",$type="pnggray",$double_entry=0){
 		//print "PAGE $n: ";
 		//open file
 		$data = file_get_contents($file);
-    $image = imagecreatefromstring($data);
-    $image = convertmono($image); //convert to monochrome
+		$image = imagecreatefromstring($data);
+		$image = convertmono($image); //convert to monochrome
 		
 		$images = split_scanning($image);
 		unset($image);
@@ -214,31 +220,29 @@ function newquestionnaire($filename,$desc = "",$type="pnggray",$double_entry=0){
 
 			//imagepng($barcode,"/mnt/iss/tmp/temp$n.png");
 
-      //check for barcode
-      $pid = barcode($barcode,1,BARCODE_LENGTH_PID);
+			//check for barcode
+			$pid = barcode($barcode,1,BARCODE_LENGTH_PID);
 
-  
-      //if failed try second location
-      if (!$pid)
-      {
-        $btlx = floor(BARCODE_TLX_PORTION2 * $width);
-      	if ($btlx <= 0) $btlx = 1;
+			//if failed try second location
+			if (!$pid)
+			{
+				$btlx = floor(BARCODE_TLX_PORTION2 * $width);
+				if ($btlx <= 0) $btlx = 1;
 
-      	$btly = floor(BARCODE_TLY_PORTION2 * $height);
-        if ($btly <= 0) $btly = 1;
+				$btly = floor(BARCODE_TLY_PORTION2 * $height);
+				if ($btly <= 0) $btly = 1;
 
-        $bbrx = floor(BARCODE_BRX_PORTION2 * $width);
-        if ($bbrx <= 0) $bbrx = 1;
+				$bbrx = floor(BARCODE_BRX_PORTION2 * $width);
+				if ($bbrx <= 0) $bbrx = 1;
 
-        $bbry = floor(BARCODE_BRY_PORTION2 * $height);
-        if ($bbry <= 0) $bbry = 1;
-      
-        $barcode = crop($image,array("tlx" => $btlx, "tly" => $btly, "brx" => $bbrx, "bry" => $bbry));
+				$bbry = floor(BARCODE_BRY_PORTION2 * $height);
+				if ($bbry <= 0) $bbry = 1;
+			  
+				$barcode = crop($image,array("tlx" => $btlx, "tly" => $btly, "brx" => $bbrx, "bry" => $bbry));
 
-        //check for barcode
-        $pid = barcode($barcode,1,BARCODE_LENGTH_PID2);
-      }
-  
+				//check for barcode
+				$pid = barcode($barcode,1,BARCODE_LENGTH_PID2);
+			}
 
 			if ($pid)
 			{

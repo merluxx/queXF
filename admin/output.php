@@ -72,7 +72,7 @@ if (isset($_GET['pspp']))
 
 xhtml_head(T_("Output data"),true,array("../css/table.css"));
 
-$sql = "SELECT description, qid,
+$sql = "SELECT description, qid, quexf_pdf,
 		CONCAT('<a href=\"?data=', qid, '\">" . T_("Data") . "</a>') as data,
 		CONCAT('<a href=\"?ddi=', qid, '\">" . T_("DDI") . "</a>') as ddi,
 		CONCAT('<a href=\"?csv=', qid, '\">" . T_("CSV") . "</a>') as csv,
@@ -87,7 +87,24 @@ $sql = "SELECT description, qid,
 $qs = $db->GetAll($sql);
 
 foreach ($qs as &$row) {
-    $row['filledpdfzip'] = '<button class="download-filled-pdf-zip" data-qid="' . htmlspecialchars($row['qid']) . '">' . T_("ZIP of filled PDFs") . '</button>';
+    // Display the button only if quexf_pdf is not NULL and not empty and have forms verified
+	$sqlcount = "
+		SELECT COUNT(fid) AS nbf
+		FROM forms AS f
+		WHERE f.qid = ". $row['qid'] ."
+		AND done IN (1,3)
+	";
+	$nbrow = $db->GetAll($sqlcount);
+    if (!is_null($row['quexf_pdf']) && $row['quexf_pdf'] !== '' && intval($nbrow[0]['nbf']) > 0) {
+        $row['filledpdfzip'] =
+            '<button class="download-filled-pdf-zip" data-qid="' .
+            htmlspecialchars($row['qid']) .
+            '">' .
+            T_("ZIP of filled PDFs") .
+            '</button>';
+    } else {
+        $row['filledpdfzip'] = '';
+    }
 }
 
 xhtml_table($qs, array('description','data','ddi','csv','csvmerged','csvlabel','pspp','banding','filledpdfzip'),array(T_("Questionnaire"),T_("Data"),T_("DDI"),T_("CSV"),T_("CSV Merged"),T_("CSV Labelled"), T_("PSPP (SPSS)"), T_("Banding XML"), T_("ZIP of filled PDFs")));

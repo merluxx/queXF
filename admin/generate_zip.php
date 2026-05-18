@@ -1,6 +1,7 @@
 <?php
 include_once("../config.inc.php");
 include_once("../db.inc.php");
+include ("../functions/functions.output.php");
 
 function remove_directory_recursive($dir) {
     if (!is_dir($dir)) {
@@ -32,7 +33,7 @@ function generate_filled_pdf_zip($qid) {
     $qid = intval($qid);
 
     $questionnaire = $db->GetRow("
-        SELECT qid, quexf_pdf, quexf_banding
+        SELECT qid, quexf_pdf
         FROM questionnaires
         WHERE qid = '$qid'
     ");
@@ -41,7 +42,9 @@ function generate_filled_pdf_zip($qid) {
         return array("success" => false, "message" => "Questionnaire not found");
     }
 
-    if (empty($questionnaire['quexf_pdf']) || empty($questionnaire['quexf_banding'])) {
+    $xmlbanding = export_banding($qid,false);
+
+    if (empty($questionnaire['quexf_pdf']) || empty($xmlbanding)) {
         return array("success" => false, "message" => "The PDF, queXML, or banding file is missing from the database");
     }
 
@@ -62,7 +65,7 @@ function generate_filled_pdf_zip($qid) {
         return array("success" => false, "message" => "Unable to write temporary PDF");
     }
 
-    if (file_put_contents($bandingPath, $questionnaire['quexf_banding']) === false) {
+    if (file_put_contents($bandingPath, $xmlbanding) === false) {
         remove_directory_recursive($runDir);
         return array("success" => false, "message" => "Unable to write temporary banding file");
     }

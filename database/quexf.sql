@@ -486,7 +486,7 @@ CREATE TABLE IF NOT EXISTS `process_log` (
 -- Table structure for table `questionnaires`
 --
 
--- ALTER TABLE questionnaires ADD COLUMN `quexf_pdf` LONGBLOB DEFAULT NULL, ADD COLUMN `quexf_banding` LONGBLOB DEFAULT NULL;
+-- ALTER TABLE questionnaires ADD COLUMN `quexf_pdf` LONGBLOB DEFAULT NULL;
 CREATE TABLE IF NOT EXISTS `questionnaires` (
   `qid` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `description` text COLLATE utf8_unicode_ci NOT NULL,
@@ -497,8 +497,7 @@ CREATE TABLE IF NOT EXISTS `questionnaires` (
   `rpc_password` text COLLATE utf8_unicode_ci,
   `limesurvey_sid` int(11) DEFAULT NULL,
   `double_entry` TINYINT(1) NOT NULL DEFAULT '0',
-  `quexf_pdf` LONGBLOB DEFAULT NULL,
-  `quexf_banding` LONGBLOB DEFAULT NULL,
+  `quexf_pdf` LONGBLOB DEFAULT NULL
   PRIMARY KEY (`qid`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 

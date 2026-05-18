@@ -38,19 +38,9 @@ if (isset($_FILES['bandingxml']) && isset($_POST['qid']) && !empty($_POST['qid']
 
 	if ($a)
 	{
-		if ($r) {
+		if ($r)
 			print "<h2>" . T_("Successfully loaded banding XML file") . "</h2>";
-			// Save xml_banding in Db
-			$xml_data = file_get_contents($xmlname);
-			$db->StartTrans();
-			$sql = "
-				UPDATE questionnaires
-				SET quexf_banding = ?
-				WHERE qid = ?
-			";
-			$db->Execute($sql, array($xml_data, (int)$r));
-			$db->CompleteTrans();
-		} else
+		else
 			print "<h2>" . T_("Failed to load banding XML file") . "</h2>";
 	}
 }

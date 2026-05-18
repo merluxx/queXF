@@ -819,7 +819,7 @@ function export_icr($kb)
  *
  * @param int $qid The quesitonnaire id
  */ 
-function export_banding($qid)
+function export_banding($qid, $download=true)
 {
 	global $db;
 
@@ -928,11 +928,15 @@ function export_banding($qid)
     $dom->formatOutput = true;
 	$ret = $dom->saveXML();	
 	
-	header ("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-	header ("Content-Type: text/xml");
-	header ("Content-Disposition: attachment; filename=quexf_$qid.xml");
+	if($download) {
+		header ("Cache-Control: must-revalidate, post-check=0, pre-check=0");
+		header ("Content-Type: text/xml");
+		header ("Content-Disposition: attachment; filename=quexf_$qid.xml");
 
-	echo $ret;
+		echo $ret;
+	}  else {
+		return $ret;
+	}
 
 }
 

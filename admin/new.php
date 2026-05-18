@@ -46,18 +46,7 @@ if (isset($_FILES['form']))
 	if (!is_array($r) && isset($_FILES['bandingxml']) && !empty($_FILES['bandingxml']['tmp_name']))
 	{
 		$xmlname = $_FILES['bandingxml']['tmp_name'];
-		$xml_data = file_get_contents($xmlname);
-		$r2 =  import_bandingxml($xml_data,$r);
-		
-		// Save xml_banding in Db
-		$db->StartTrans();
-		$sql = "
-			UPDATE questionnaires
-			SET quexf_banding = ?
-			WHERE qid = ?
-		";
-		$db->Execute($sql, array($xml_data, (int)$r));
-		$db->CompleteTrans();
+		$r2 =  import_bandingxml(file_get_contents($xmlname),$r);
 	}
 }
 

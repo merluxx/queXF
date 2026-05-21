@@ -21,7 +21,6 @@ Exemple :
       --pdf quexmlpdf_481332_fr.pdf \
       --banding quexf_banding_481332_fr.xml \
       --out output
-
 """
 
 from __future__ import annotations
@@ -40,6 +39,7 @@ from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.lib.utils import ImageReader
 
 
 # Coordonnées queXF habituelles pour A4 300 DPI.
@@ -590,7 +590,7 @@ def export_form_pdf(
     filled_threshold: float,
     add_scanned: bool = False,
 ) -> Path:
-    original_reader = PdfReader(str(original_pdf_path))
+    original_reader = PdfReader(str(original_pdf_path), strict=False)
 
     checked_bids = get_checked_bid_set(conn, form.fid, filled_threshold)
     text_by_bid = get_verified_text_by_bid(conn, form.fid)
@@ -639,12 +639,15 @@ def export_form_pdf(
                 if scanned_image.mode != "RGB":
                     scanned_image = scanned_image.convert("RGB")
 
-                c.drawInlineImage(
-                    scanned_image,
+                img_reader = ImageReader(scanned_image)
+                c.drawImage(
+                    img_reader,
                     0,
                     0,
                     width=page_width,
                     height=page_height,
+                    preserveAspectRatio=False,
+                    mask='auto'
                 )
 
             c.showPage()
@@ -652,10 +655,11 @@ def export_form_pdf(
         c.save()
         packet.seek(0)
 
-        scanned_overlay_reader = PdfReader(packet)
+        scanned_overlay_reader = PdfReader(packet, strict=False)
 
         # Construction finale
         writer = PdfWriter()
+        filename_description = safe_filename(form.description)
 
         for i, original_page in enumerate(original_reader.pages):
 
@@ -668,15 +672,21 @@ def export_form_pdf(
             )
 
             # page originale à gauche
-            new_page.merge_translated_page(original_page, 0, 0)
+            try:
+                new_page.merge_translated_page(original_page, 0, 0)
+            except Exception as e:
+                print(f"Erreur {filename_description} page {i}: {e}")
 
             # scan à droite
             if i < len(scanned_overlay_reader.pages):
-                new_page.merge_translated_page(
-                    scanned_overlay_reader.pages[i],
-                    float(original_page.mediabox.width),
-                    0,
-                )
+                try:
+                    new_page.merge_translated_page(
+                        scanned_overlay_reader.pages[i],
+                        float(original_page.mediabox.width),
+                        0,
+                    )
+                except Exception as e:
+                    print(f"Erreur {filename_description} page {i}: {e}")
 
             # overlay réponses
             if i < len(overlay_reader.pages):
@@ -684,7 +694,7 @@ def export_form_pdf(
 
             writer.add_page(new_page)
 
-        filename_description = safe_filename(form.description)
+
 
         output_path = (
                 Path(out_dir)

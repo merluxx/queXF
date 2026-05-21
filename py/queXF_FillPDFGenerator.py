@@ -22,11 +22,6 @@ Exemple :
       --banding quexf_banding_481332_fr.xml \
       --out output
 
-    #MUSIQUAL_INITIAUX_V3
-    python queXF_FillPDFGenerator.py 46 --db-host mariadb-x.unicaen.fr --db-user ad_nimh_quexf --db-password "secret" --db-name nimh_quexf --pdf quexmlpdf_966651_fr.pdf --banding quexf_46.xml --out output
-
-    #MUSIQUAL_FINAUX_V3
-    python queXF_FillPDFGenerator.py 47 --db-host mariadb-x.unicaen.fr --db-user ad_nimh_quexf --db-password "secret" --db-name nimh_quexf --pdf quexmlpdf_788975_fr.pdf --banding quexf_47.xml --out output
 """
 
 from __future__ import annotations
@@ -41,6 +36,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import pymysql
+from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase.pdfmetrics import stringWidth
@@ -112,6 +108,11 @@ def parse_args() -> argparse.Namespace:
             "Si activé, utilise formboxes.filled pour cocher les cases. "
             "Sinon, utilise les valeurs vérifiées quand disponibles, puis formboxes."
         ),
+    )
+    parser.add_argument(
+        "--add-scanned",
+        action="store_true",
+        help="Ajoute le scan à droite de la page remplie",
     )
 
     return parser.parse_args()
@@ -587,6 +588,7 @@ def export_form_pdf(
     boxes_by_db_bid: Dict[int, Box],
     out_dir: str | Path,
     filled_threshold: float,
+    add_scanned: bool = False,
 ) -> Path:
     original_reader = PdfReader(str(original_pdf_path))
 
@@ -602,10 +604,103 @@ def export_form_pdf(
         char_by_bid=char_by_bid,
     )
 
+    if add_scanned:
+        sql = """
+              SELECT pid, filename, image
+              FROM formpages
+              WHERE fid = %s
+              ORDER BY pid \
+              """
+
+        with conn.cursor() as cur:
+            cur.execute(sql, (form.fid,))
+            form_pages = list(cur.fetchall())
+
+        packet = io.BytesIO()
+        c = canvas.Canvas(packet)
+
+        page_count = len(original_reader.pages)
+
+        for page_index in range(page_count):
+            page = original_reader.pages[page_index]
+
+            page_width = float(page.mediabox.width)
+            page_height = float(page.mediabox.height)
+
+            # PDF final : original à gauche + scan à droite
+            c.setPageSize((page_width, page_height))
+
+            # Image scannée correspondante par ordre SQL
+            if page_index < len(form_pages):
+                form_page = form_pages[page_index]
+                scanned_image_data = io.BytesIO(form_page["image"])
+                scanned_image = Image.open(scanned_image_data)
+
+                if scanned_image.mode != "RGB":
+                    scanned_image = scanned_image.convert("RGB")
+
+                c.drawInlineImage(
+                    scanned_image,
+                    0,
+                    0,
+                    width=page_width,
+                    height=page_height,
+                )
+
+            c.showPage()
+
+        c.save()
+        packet.seek(0)
+
+        scanned_overlay_reader = PdfReader(packet)
+
+        # Construction finale
+        writer = PdfWriter()
+
+        for i, original_page in enumerate(original_reader.pages):
+
+            # nouvelle page double largeur
+            from pypdf import PageObject
+
+            new_page = PageObject.create_blank_page(
+                width=float(original_page.mediabox.width) * 2,
+                height=float(original_page.mediabox.height),
+            )
+
+            # page originale à gauche
+            new_page.merge_translated_page(original_page, 0, 0)
+
+            # scan à droite
+            if i < len(scanned_overlay_reader.pages):
+                new_page.merge_translated_page(
+                    scanned_overlay_reader.pages[i],
+                    float(original_page.mediabox.width),
+                    0,
+                )
+
+            # overlay réponses
+            if i < len(overlay_reader.pages):
+                new_page.merge_page(overlay_reader.pages[i])
+
+            writer.add_page(new_page)
+
+        filename_description = safe_filename(form.description)
+
+        output_path = (
+                Path(out_dir)
+                / f"qid_{form.qid}_fid_{form.fid}_{filename_description}.pdf"
+        )
+
+        with open(output_path, "wb") as f:
+            writer.write(f)
+
+        return output_path
+
     filename_description = safe_filename(form.description)
     output_path = Path(out_dir) / f"qid_{form.qid}_fid_{form.fid}_{filename_description}.pdf"
 
-    merge_overlay(original_pdf_path, overlay_reader, output_path)
+    if not add_scanned:
+        merge_overlay(original_pdf_path, overlay_reader, output_path)
 
     return output_path
 
@@ -647,6 +742,7 @@ def main() -> None:
                 boxes_by_db_bid=boxes_by_db_bid,
                 out_dir=out_dir,
                 filled_threshold=args.filled_threshold,
+                add_scanned=args.add_scanned,
             )
             print(f"PDF généré : {output_path}")
 
